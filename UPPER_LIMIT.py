@@ -165,7 +165,5 @@ for j in range(len(ul_fluxes)):
 		elif BETA == 2.0:
 			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][6]/ul_fluxes[j][7])*THR]
 
-ul_fluxes.close()
-
 print "\n\n%d sigma UL = %.2E erg cm^-2 at (l,b) = (%3.2f, %3.2f) = (theta,phi) = (%3.2f, %3.2f)" % (N, float(UL[4]), float(UL[0]), float(UL[1]), THETA, PHI)
 print "for single power law model with photon index %2.1f\n\n" % BETA
