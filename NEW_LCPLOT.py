@@ -5,6 +5,8 @@
 import os, sys, math, os.path
 from scipy.stats import poisson
 import numpy as np
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import itertools
 from itertools import groupby
