@@ -133,7 +133,7 @@ if BETA != 1.0 and BETA != 1.5 and BETA != 2.0:
 	print "\nOnly 1.0, 1.5, and 2.0 allowed!"
 	exit(1)
 
-THR = N*float(math.sqrt(BKG))
+THR_UL = BKG + N*float(math.sqrt(BKG))
 
 theta = float(os.popen("get_theta_phi.py %f %f %f" % (float(TTIME), float(LON_LB), float(LAT_LB))).read().split(' ')[0])
 phi = float(os.popen("get_theta_phi.py %f %f %f" % (float(TTIME), float(LON_LB), float(LAT_LB))).read().split(' ')[1])
@@ -148,11 +148,11 @@ UL_TWO = []
 if phi < 0:
 	phi = phi + 360
 
-for n in range(-8,9):
+for n in range(13):
 	if theta >= (n*15)-7.5 and theta < (n*15)+7.5:
 		THETA = n*15
 
-for m in range(0,9):
+for m in range(9):
 	if phi >= (m*45)-22.5 and phi < (m*45)+22.5:
 		PHI = m*45
 
@@ -171,11 +171,11 @@ for j in range(len(ul_fluxes)):
 
 	if ul_fluxes[j][0] == THETA and ul_fluxes[j][1] == PHI:
 		if BETA == 1.0:
-			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][2]/ul_fluxes[j][3])*THR]
+			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][2]/ul_fluxes[j][3])*THR_UL]
 		elif BETA == 1.5:
-			UL = [float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][4]/ul_fluxes[j][5])*THR]
+			UL = [float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][4]/ul_fluxes[j][5])*THR_UL]
 		elif BETA == 2.0:
-			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][6]/ul_fluxes[j][7])*THR]
+			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][6]/ul_fluxes[j][7])*THR_U_ULL]
 
-print "\n\n%d sigma UL = %.2E erg cm^-2 at (l,b) = (%3.2f, %3.2f) = (theta,phi) = (%3.2f, %3.2f)" % (N, float(UL[4]), float(UL[0]), float(UL[1]), THETA, PHI)
+print "\n\n%d sigma UL = %.2E erg cm^-2 at (l,b) = (%3.2f, %3.2f) = (th,ph) = (%3.2f, %3.2f) = (TH,PH) = (%3.2f, %3.2f)" % (N, float(UL[4]), float(UL[0]), float(UL[1]), theta, phi, THETA, PHI)
 print "for single power law model with photon index %2.1f\n\n" % BETA
