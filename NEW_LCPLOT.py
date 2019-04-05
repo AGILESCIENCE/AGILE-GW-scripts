@@ -43,6 +43,12 @@ else:
 NAME = str(sys.argv[10])
 FLAG = str(sys.argv[11])
 
+print "\nHai introdotto una FLAG = ", FLAG
+
+if FLAG != 'SOLO' and FLAG != 'AGILE' and FLAG != 'KW' and FLAG != 'MT':
+        print "\nFLAG non corretta! Inserire:\n  \'SOLO\' (1 plot in 0.4-100 MeV)\n  \'MT\' (3 plot in bande energetiche)\n  \'AGILE\' (12 plot in bande energetiche e photon list)\n  \'KW\' (10 plot in bande energetiche di Konus-WIND)\n"
+	sys.exit(1)
+
 OUTPATH_ROOT = "%s/%s" % (str(os.getcwd()), NAME)
 
 os.system("mkdir -p %s" % OUTPATH_ROOT)
@@ -601,30 +607,6 @@ if FLAG == 'AGILE':
 	ax_CTS.set_xlabel('t - %9.6f [s]' % TTIME, fontsize=18)
 	plt.savefig('%s_%06.d_%9.6f.png' % (NAME, CONT, TTIME))
 	plt.close(fig)
-
-if FLAG != 'SOLO' and FLAG != 'AGILE' and FLAG != 'KW':
-	print "\nNon capire cosa tu dire, badrone\n"
-
-print "hai introdotto una flag =", FLAG
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
