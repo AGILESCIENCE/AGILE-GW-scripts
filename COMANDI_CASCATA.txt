@@ -1,7 +1,6 @@
-sh shell_instance.sh  
-source /opt/module/py_manual_27
 source /opt/module/mcal_pipe_2.0
 source activate py_mcal_27
 source /opt/module/agile-B24-r5
 source /opt/module/agile-mcal
 source /opt/module/heasoft-6.25
+

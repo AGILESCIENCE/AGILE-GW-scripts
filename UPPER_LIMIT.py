@@ -5,6 +5,9 @@ import numpy as np
 import time
 from calendar import timegm
 import datetime
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+
 
 ul_fluxes = [[0.0, 0.0, 1.4206e-07, 642.0, 1.104e-07, 72.0, 6.4838e-08, 10.0],
 [105.0, 0.0, 1.4206e-07, 248.0, 1.104e-07, 23.0, 6.4838e-08, 5.0],
@@ -111,17 +114,26 @@ if int(len(TEMPO)) == 19:
         TTIME = timegm(time.strptime(TEMPO, '%Y-%m-%dT%H:%M:%S')) - 1072915200
 else:
         TTIME = float(TEMPO)
-LON_LB = float(sys.argv[2])
-LAT_LB = float(sys.argv[3])
-BKG = int(sys.argv[4])
-N = int(sys.argv[5])
-BETA = float(sys.argv[6])
+FLAG = str(sys.argv[2])
+if FLAG == 'lb':
+	LON_LB = float(sys.argv[3])
+	LAT_LB = float(sys.argv[4])
+elif FLAG == 'rd':
+	RA = float(sys.argv[3])
+	DEC = float(sys.argv[4])
+	c = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, frame='icrs')
+	galt = c.galactic
+	LON_LB = float(galt.l.degree)
+	LAT_LB = float(galt.b.degree)
+BKG = int(sys.argv[5])
+N = int(sys.argv[6])
+BETA = float(sys.argv[7])
 
 if BETA != 1.0 and BETA != 1.5 and BETA != 2.0:
 	print "\nOnly 1.0, 1.5, and 2.0 allowed!"
 	exit(1)
 
-THR = N*float(math.sqrt(BKG))
+THR_UL = BKG + N*float(math.sqrt(BKG))
 
 theta = float(os.popen("get_theta_phi.py %f %f %f" % (float(TTIME), float(LON_LB), float(LAT_LB))).read().split(' ')[0])
 phi = float(os.popen("get_theta_phi.py %f %f %f" % (float(TTIME), float(LON_LB), float(LAT_LB))).read().split(' ')[1])
@@ -136,11 +148,11 @@ UL_TWO = []
 if phi < 0:
 	phi = phi + 360
 
-for n in range(0,13):
+for n in range(13):
 	if theta >= (n*15)-7.5 and theta < (n*15)+7.5:
 		THETA = n*15
 
-for m in range(0,9):
+for m in range(9):
 	if phi >= (m*45)-22.5 and phi < (m*45)+22.5:
 		PHI = m*45
 
@@ -159,11 +171,11 @@ for j in range(len(ul_fluxes)):
 
 	if ul_fluxes[j][0] == THETA and ul_fluxes[j][1] == PHI:
 		if BETA == 1.0:
-			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][2]/ul_fluxes[j][3])*THR]
+			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][2]/ul_fluxes[j][3])*THR_UL]
 		elif BETA == 1.5:
-			UL = [float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][4]/ul_fluxes[j][5])*THR]
+			UL = [float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][4]/ul_fluxes[j][5])*THR_UL]
 		elif BETA == 2.0:
-			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][6]/ul_fluxes[j][7])*THR]
+			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][6]/ul_fluxes[j][7])*THR_UL]
 
-print "\n\n%d sigma UL = %.2E erg cm^-2 at (l,b) = (%3.2f, %3.2f) = (theta,phi) = (%3.2f, %3.2f)" % (N, float(UL[4]), float(UL[0]), float(UL[1]), THETA, PHI)
+print "\n\n%d sigma UL = %.2E erg cm^-2 at (l,b) = (%3.2f, %3.2f) = (th,ph) = (%3.2f, %3.2f) = (TH,PH) = (%3.2f, %3.2f)" % (N, float(UL[4]), float(UL[0]), float(UL[1]), theta, phi, THETA, PHI)
 print "for single power law model with photon index %2.1f\n\n" % BETA
