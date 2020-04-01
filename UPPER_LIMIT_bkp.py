@@ -1,5 +1,24 @@
-import os, sys, math
+# USAGE: python UPPER_LIMIT.py 472161854.643000 lb 120.5 -40.2 570 3 1.5
+
+import os, sys, math, time, os.path, subprocess
+from subprocess import check_call, CalledProcessError
+from scipy.stats import poisson
 import numpy as np
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+import ROOT
+from ROOT import TFile
+from ROOT import gDirectory
+import matplotlib.ticker as ticker
+from mpl_toolkits.basemap import Basemap
+from lxml import etree
+from datetime import datetime
+import site;
+site.getsitepackages()
+from astropy.io import fits
+import configparser
+import socket
 import time
 from calendar import timegm
 import datetime
@@ -106,67 +125,141 @@ ul_fluxes = [[0.0, 0.0, 1.4206e-07, 642.0, 1.104e-07, 72.0, 6.4838e-08, 10.0],
 [90.0, 45.0, 1.4206e-07, 103.0, 1.104e-07, 20.0, 6.4838e-08, 4.0],
 [90.0, 90.0, 1.4206e-07, 90.0, 1.104e-07, 12.0, 6.4838e-08, 4.0]]
 
+TEMPO = str(sys.argv[1])
+if int(len(TEMPO)) == 19:
+        TTIME = timegm(time.strptime(TEMPO, '%Y-%m-%dT%H:%M:%S')) - 1072915200
+else:
+        TTIME = float(TEMPO)
+FLAG = str(sys.argv[2])
+if FLAG == 'lb':
+	LON_LB = float(sys.argv[3])
+	LAT_LB = float(sys.argv[4])
+elif FLAG == 'rd':
+	RA = float(sys.argv[3])
+	DEC = float(sys.argv[4])
+	c = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, frame='icrs')
+	galt = c.galactic
+	LON_LB = float(galt.l.degree)
+	LAT_LB = float(galt.b.degree)
+BKG = float(sys.argv[5])
+N = int(sys.argv[6])
+BETA = float(sys.argv[7])
 
+if BETA != 1.0 and BETA != 1.5 and BETA != 2.0:
+	print "\nOnly 1.0, 1.5, and 2.0 allowed!"
+	exit(1)
 
+THR_UL = N*float(math.sqrt(BKG))
 
-f = open("ligo_events.txt", "r")
+gc    = SkyCoord(l=LON_LB*u.degree, b=LAT_LB*u.degree, frame='galactic')
+RaDec = gc.fk5
+Ra_S  = float(RaDec.ra.degree)
+Dec_S = float(RaDec.dec.degree)
 
-for line in f:
-	line = line.strip()
-	col  = line.split()
+log_index_file = open("/AGILE_PROC3/DATA_ASDC2/INDEX/LOG.log.index", "r")
+log_file = ""
 
-	NAME = str(col[0])
-	TTIME = float(col[4])
-	BKG = float(col[5])
+for line in log_index_file:
 
-	print "\n%s" % NAME
+	index_tstart = line.split(" ")[1]
+	index_tstop = line.split(" ")[2]
 
-	f_out = open("%s_ul.txt" % NAME, "w")
+	if float(index_tstart) <= float(TTIME) <= float(index_tstop):
+		log_file = line.split(" ")[0]
 
-	for i in range(24):
-		for j in range(12):
-			RA = i*15
-			DEC = (j*15)-90
+		# create geographic map, if log file exists
 
-			print "  %3.2f %3.2f" % (RA, DEC)
+		cmd = "python log_extractor.py %s %s 1." % (str(log_file), str(TTIME))
 
-			c = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, frame='icrs')
-			galt = c.galactic
-			LON_LB = float(galt.l.degree)
-			LAT_LB = float(galt.b.degree)
+		output = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT).stdout.read().decode('utf-8')
+		output2 = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,stderr=subprocess.STDOUT, close_fds=True)
+		theInfo = output2.communicate()[0].strip()
 
-			theta = float(os.popen("get_theta_phi.py %f %f %f" % (float(TTIME), float(LON_LB), float(LAT_LB))).read().split(' ')[0])
-			phi = float(os.popen("get_theta_phi.py %f %f %f" % (float(TTIME), float(LON_LB), float(LAT_LB))).read().split(' ')[1])
+		if output2.returncode == 0:
+			status = output
 
-			THETA = 0
-			PHI = 0
+			# build ephemeris file, if any
 
-			UL = []
+			RA_x = 0
+			DEC_x = 0
+			RA_y = 0
+			DEC_y = 0
 
-			if phi < 0:
-				phi = phi + 360
+			for item in status.split("\n"):
+				if "ATTITUDE_RA_X" in item:
+					RA_x = item.strip()
+				if "ATTITUDE_DEC_X" in item:
+					DEC_x = item.strip()
+				if "ATTITUDE_RA_Y" in item:
+					RA_y = item.strip()
+				if "ATTITUDE_DEC_Y" in item:
+					DEC_y = item.strip()
 
-			for n in range(13):
-				if theta >= (n*15)-7.5 and theta < (n*15)+7.5:
-					THETA = n*15
+		break
 
-			for m in range(9):
-				if phi >= (m*45)-22.5 and phi < (m*45)+22.5:
-					PHI = m*45
+log_index_file.close()
 
-			if THETA == 0:
-				THETA = 15
-			elif THETA == 110:
-				THETA = 105
-			elif THETA == 130:
-				THETA = 135
-			elif THETA == 180:
-				THETA = 165
-			if PHI == 360:
-				PHI = 0
+Ra_x  = float([x.strip() for x in RA_x.split(',')][1])
+Dec_x = float([x.strip() for x in DEC_x.split(',')][1])
 
-			for j in range(len(ul_fluxes)):
-				if ul_fluxes[j][0] == THETA and ul_fluxes[j][1] == PHI:
-					f_out.write("%3.2f %3.2f    %.2E %.2E    %.2E %.2E    %.2E %.2E    %3.2f %3.2f   %3.2f %3.2f    %3.2f %3.2f\n" % (RA, DEC, (ul_fluxes[j][2]/ul_fluxes[j][3])*(2*float(math.sqrt(BKG))), (ul_fluxes[j][4]/ul_fluxes[j][5])*(2*float(math.sqrt(BKG))), (ul_fluxes[j][6]/ul_fluxes[j][7])*(2*float(math.sqrt(BKG))), (ul_fluxes[j][2]/ul_fluxes[j][3])*(3*float(math.sqrt(BKG))), (ul_fluxes[j][4]/ul_fluxes[j][5])*(3*float(math.sqrt(BKG))), (ul_fluxes[j][6]/ul_fluxes[j][7])*(3*float(math.sqrt(BKG))), LON_LB, LAT_LB, theta, phi, THETA, PHI))
+Ra_y  = float([x.strip() for x in RA_y.split(',')][1])
+Dec_y = float([x.strip() for x in DEC_y.split(',')][1])
 
-	f_out.close()
+X_S = math.cos(math.radians(Dec_S)) * math.cos(math.radians(Ra_S))
+Y_S = math.cos(math.radians(Dec_S)) * math.sin(math.radians(Ra_S))
+Z_S = math.sin(math.radians(Dec_S))
+
+X_x = math.cos(math.radians(Dec_x)) * math.cos(math.radians(Ra_x))
+Y_x = math.cos(math.radians(Dec_x)) * math.sin(math.radians(Ra_x))
+Z_x = math.sin(math.radians(Dec_x))
+
+X_y = math.cos(math.radians(Dec_y)) * math.cos(math.radians(Ra_y))
+Y_y = math.cos(math.radians(Dec_y)) * math.sin(math.radians(Ra_y))
+Z_y = math.sin(math.radians(Dec_y))
+
+theta = math.acos((X_S*X_y + Y_S*Y_y + Z_S*Z_y) / (math.sqrt( X_S*X_S + Y_S*Y_S + Z_S*Z_S ) * math.sqrt( X_y*X_y + Y_y*Y_y + Z_y*Z_y )))*180/math.pi
+
+phi = math.acos((X_S*X_y + Y_S*Y_y + Z_S*Z_y) / (math.sqrt( X_S*X_S + Y_S*Y_S + Z_S*Z_S ) * math.sqrt( X_y*X_y + Y_y*Y_y + Z_y*Z_y )))*180/math.pi - 180
+
+THETA = 0
+PHI = 0
+
+UL_ONE = []
+UL_HALF = []
+UL_TWO = []
+
+if phi < 0:
+	phi = phi + 360
+
+for n in range(13):
+	if theta >= (n*15)-7.5 and theta < (n*15)+7.5:
+		THETA = n*15
+
+for m in range(9):
+	if phi >= (m*45)-22.5 and phi < (m*45)+22.5:
+		PHI = m*45
+
+if THETA == 0:
+	THETA = 15
+elif THETA == 110:
+	THETA = 105
+elif THETA == 130:
+	THETA = 135
+elif THETA == 180:
+	THETA = 165
+if PHI == 360:
+	PHI = 0
+
+for j in range(len(ul_fluxes)):
+
+	if ul_fluxes[j][0] == THETA and ul_fluxes[j][1] == PHI:
+		if BETA == 1.0:
+			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][2]/ul_fluxes[j][3])*THR_UL]
+		elif BETA == 1.5:
+			UL = [float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][4]/ul_fluxes[j][5])*THR_UL]
+		elif BETA == 2.0:
+			UL = [ float(LON_LB), float(LAT_LB), THETA, PHI, (ul_fluxes[j][6]/ul_fluxes[j][7])*THR_UL]
+
+print "\n\n%d sigma UL = %.2E erg cm^-2 at (l,b) = (%3.2f, %3.2f) = (th,ph) = (%3.2f, %3.2f) = (TH,PH) = (%3.2f, %3.2f)" % (N, float(UL[4]), float(UL[0]), float(UL[1]), theta, phi, THETA, PHI)
+print "for single power law model with photon index %2.1f\n\n" % BETA
+
